@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>YeterX</title>
+<link rel="icon" href="favicon.png" type="image/x-icon">
+<link rel="stylesheet" href="https://unpkg.com/xp.css/dist/XP.css">
+<style>
+body { margin:0; background:url('bg.jpg') no-repeat center center fixed; background-size:cover; display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; cursor: url('icons/cursor.cur'), auto; }
+.window-body { padding:20px; max-height:300px; overflow-y:auto; }
+.icons { display:grid; grid-template-columns:repeat(2,1fr); gap:30px; justify-items:center; }
+.icons a { text-decoration:none; color:black; text-align:center; font-size:14px; cursor: url('icons/hover.cur'), auto; }
+.icons img { width:64px; height:64px; transition: transform 0.2s; }
+.icons img:hover { transform:scale(1.3);  cursor: url('icons/hover.cur'), auto; }
+.posts { display:flex; flex-direction:column; gap:10px; }
+.post { display:flex; flex-direction:column; align-items:flex-start; gap:10px; padding:10px; border-radius:6px; width:100%; box-sizing:border-box; background:rgba(255,255,255,0.8); }
+.post img { max-width:400px; max-height:400px; object-fit:cover; border-radius:0px; }
+#musicToggle { position:fixed; top:10px; right:10px; font-size:24px; cursor:pointer; background:none; border:none; cursor: url('icons/hover.cur'), auto; }
+.footer-text { position:fixed; bottom:5px; left:5px; font-size:12px; color:white; background:rgba(0,0,0,0.5); padding:3px 6px; border-radius:3px; }
+#player { display:none; }
+#backBtn { padding:5px 10px; font-size:14px; cursor:pointer; margin-bottom:10px; border-radius:4px; border:none; background-color:#eee; }
+#backBtn:hover { background-color:#ddd; cursor: url('icons/hover.cur'), auto; }
+.loading { text-align:center; color:white; padding:20px; }
+.error { text-align:center; color:red; padding:20px; background:rgba(255,255,255,0.9); border-radius:5px; }
+</style>
+</head>
+<body>
+<button id="musicToggle">🔇</button>
+<div class="window" style="width:500px;">
+  <div class="title-bar">
+    <div class="title-bar-text" id="windowTitle">YeterX</div>
+    <div class="title-bar-controls">
+      <button aria-label="Minimize"></button>
+      <button aria-label="Maximize"></button>
+      <button aria-label="Close"></button>
+    </div>
+  </div>
+  <div class="window-body">
+    <button id="backBtn" style="display:none;">🏠 Geri Dön</button>
+    <div class="loading" id="loadingMsg">Veriler yükleniyor...</div>
+    <div class="icons" id="iconsContainer" style="display:none;"></div>
+    <div class="posts" id="postsContainer" style="display:none;"></div>
+  </div>
+</div>
+
+<iframe id="player" width="0" height="0"
+src="https://www.youtube.com/embed/XPaS-7mGo7s?autoplay=1&mute=1&loop=1&playlist=XPaS-7mGo7s&enablejsapi=1"
+title="YouTube video player" frameborder="0" allow="autoplay"></iframe>
+
+<div class="footer-text">HEY - inspired by Yeter2002</div>
+
+<script>
+// Müzik
+let isMuted=true;
+let tag=document.createElement("script");
+tag.src="https://www.youtube.com/iframe_api";
+document.body.appendChild(tag);
+let player;
+function onYouTubeIframeAPIReady(){ player=new YT.Player("player",{events:{"onReady":onPlayerReady}});}
+function onPlayerReady(){ document.getElementById("musicToggle").addEventListener("click",()=>{
+  if(isMuted){ player.unMute(); document.getElementById("musicToggle").textContent="🔊"; }
+  else{ player.mute(); document.getElementById("musicToggle").textContent="🔇"; }
+  isMuted=!isMuted;
+}); }
+
+// ----------------------------
+// JSON'dan veri yükleme
+let icons = [];
+
+async function loadIcons() {
+  const loadingMsg = document.getElementById('loadingMsg');
+  
+  try {
+    // İlk önce localStorage'dan kontrol et (lokal geliştirme için)
+    const localData = localStorage.getItem("icons");
+    if (localData && JSON.parse(localData).length > 0) {
+      icons = JSON.parse(localData);
+      loadingMsg.style.display = 'none';
+      renderIcons();
+      return;
+    }
+    
+    // JSON dosyasından yükle
+    const response = await fetch('data/icons.json');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    icons = await response.json();
+    loadingMsg.style.display = 'none';
+    renderIcons();
+    
+  } catch (error) {
+    console.error('JSON yüklenemedi:', error);
+    
+    // Fallback veri
+    icons = [
+      {
+        id:"moon",
+        title:"Moon",
+        image:"icons/moon.png",
+        posts:[
+          {
+            title:"Night Sky", 
+            content:"Harika bir gece manzarası", 
+            images:["posts/night1.png"], 
+            url:"https://example.com", 
+            media:"https://www.youtube.com/watch?v=XPaS-7mGo7s"
+          }
+        ],
+        subIcons:[]
+      }
+    ];
+    
+    loadingMsg.innerHTML = '<div class="error">JSON dosyası bulunamadı. Fallback veri kullanılıyor.</div>';
+    setTimeout(() => {
+      loadingMsg.style.display = 'none';
+      renderIcons();
+    }, 2000);
+  }
+}
+
+const iconsContainer=document.getElementById('iconsContainer');
+const postsContainer=document.getElementById('postsContainer');
+const windowTitle=document.getElementById('windowTitle');
+const backBtn=document.getElementById('backBtn');
+let breadcrumb=[];
+
+// Geçerli ikon seviyesi
+function getCurrentLevel(){
+  let current=icons;
+  for(let b of breadcrumb){
+    const found=current.find(x=>x.id===b);
+    if(!found) return [];
+    current=found.subIcons||[];
+  }
+  return current;
+}
+
+function renderIcons(){
+  iconsContainer.innerHTML='';
+  iconsContainer.style.display='grid';
+  
+  let currentLevel = getCurrentLevel();
+  if(currentLevel.length===0){ 
+    iconsContainer.innerHTML="<p style='color:white; text-align:center; grid-column: 1 / -1;'>Henüz ikon eklenmemiş.</p>"; 
+    return; 
+  }
+  
+  currentLevel.forEach(icon=>{
+    const a=document.createElement('a');
+    a.innerHTML=`<img src="${icon.image}" alt="${icon.title}" onerror="this.src='icons/default.png';"><div>${icon.title}</div>`;
+    a.addEventListener('click',()=>showContent(icon.id));
+    iconsContainer.appendChild(a);
+  });
+}
+
+function findIconByBreadcrumb(){
+  let current=icons;
+  let target=null;
+  for(let b of breadcrumb){
+    target=current.find(x=>x.id===b);
+    if(!target) return null;
+    current=target.subIcons||[];
+  }
+  return target;
+}
+
+function showContent(iconId){
+  let currentLevel=getCurrentLevel();
+  const icon=currentLevel.find(i=>i.id===iconId);
+  if(!icon) return;
+
+  windowTitle.textContent=icon.title;
+
+  if(icon.subIcons && icon.subIcons.length>0){
+    breadcrumb.push(icon.id);
+    postsContainer.style.display='none';
+    iconsContainer.style.display='grid';
+    renderIcons();
+    backBtn.style.display='inline-block';
+  } else {
+    postsContainer.innerHTML='';
+    iconsContainer.style.display='none';
+    postsContainer.style.display='flex';
+    if(!icon.posts || icon.posts.length===0){ postsContainer.innerHTML="<p>Henüz post eklenmemiş.</p>"; }
+    else{
+      icon.posts.forEach(post=>{
+        const div=document.createElement('div');
+        div.className='post';
+        if(post.title){ const titleEl=document.createElement('h3'); titleEl.textContent=post.title; div.appendChild(titleEl); }
+        if(post.images && post.images.length>0){ 
+          post.images.forEach(img=>{ 
+            const imgEl=document.createElement('img'); 
+            imgEl.src=img; 
+            imgEl.onerror = function() { this.style.display='none'; };
+            div.appendChild(imgEl); 
+          }); 
+        }
+        if(post.content){ const contentEl=document.createElement('p'); contentEl.textContent=post.content; div.appendChild(contentEl); }
+        if(post.url){ const linkEl=document.createElement('a'); linkEl.href=post.url; linkEl.textContent=post.url; linkEl.target="_blank"; linkEl.style.color="blue"; div.appendChild(linkEl); }
+        if(post.media){
+          let iframe=document.createElement('iframe');
+          iframe.width="400"; iframe.height="250"; iframe.frameBorder="0";
+          iframe.allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+          iframe.allowFullscreen=true;
+          if(post.media.includes("youtube.com") || post.media.includes("youtu.be")){
+            let videoId=post.media.split("v=")[1] || post.media.split("youtu.be/")[1];
+            if(videoId && videoId.includes("&")) videoId=videoId.split("&")[0];
+            iframe.src=`https://www.youtube.com/embed/${videoId}`;
+          } else {
+            iframe.src=post.media;
+          }
+          div.appendChild(iframe);
+        }
+        postsContainer.appendChild(div);
+      });
+    }
+    backBtn.style.display='inline-block';
+  }
+}
+
+// Geri dön
+backBtn.addEventListener('click',()=>{
+  if(breadcrumb.length>0) breadcrumb.pop();
+  postsContainer.style.display='none';
+  iconsContainer.style.display='grid';
+  renderIcons();
+  const currentIcon=findIconByBreadcrumb();
+  windowTitle.textContent=currentIcon?currentIcon.title:'YeterX';
+  if(breadcrumb.length===0) backBtn.style.display='none';
+});
+
+// Sayfa yüklendiğinde veriyi yükle
+loadIcons();
+</script>
+</body>
+</html>
