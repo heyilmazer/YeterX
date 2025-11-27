@@ -1,0 +1,6 @@
+Bu site local sunucu olmadan verileri saðlamaz. Bunun için local (yerel sunucu) çalýþtýrmak gerekir!
+Aþaðýdaki adýmlarý takip et:
+1- Dosya yoluna týklayarak cmd yaz ve enterla (üst bar örn..\....\Desktop\YeterX)
+2- Þimdi "py -m http.server 8000" yaz ve enterla (yerel sunucu python ile açýldý / python yüklü olmasý gerekebilir!)
+3- Siteyi görüntülemek için bir tarayýcý adres çubuðuna "http://localhost:8000/" yaz ve tamamdýr site gelmesi gerekir.
+4- Yerel sunucuyu kapatmak için cmd'ye ctrl+c yapman gerekiyor
